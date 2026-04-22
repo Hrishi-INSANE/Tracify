@@ -1,0 +1,15 @@
+# Sensitive files
+db.php
+
+# Environment files
+.env
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Optional (if you ever use npm later)
+node_modules/
