@@ -3,22 +3,24 @@ let timerInterval = null;
 
 // ---------------- INIT ----------------
 document.addEventListener("DOMContentLoaded", () => {
-    
 
-    // 🔥 APPLY SAVED THEME
+    // THEME
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "light") {
         document.body.classList.add("light");
     }
 
+    // 🔥 LOAD GLOBAL DATA (FIXED)
+    loadSummary();
+    loadStreak();
+
     if (document.getElementById("blocks")) loadBlocks();
 
     if (document.getElementById("history")) {
         loadHistory();
-        loadSummary();
-        loadStreak();
     }
 
+    // ACTIVE BLOCK
     if (document.getElementById("active-block")) {
         let saved = localStorage.getItem("activeBlock");
         if (saved) {
@@ -31,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // TIMER INIT
     if (document.getElementById("big-timer")) {
         initializeTimerUI();
         runTimer();
@@ -54,27 +57,19 @@ function attachFormHandler() {
             color: form.color.value
         };
 
-        try {
-            const res = await fetch("api/blocks/add.php", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: new URLSearchParams(data)
-            });
+        const res = await fetch("api/blocks/add.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams(data)
+        });
 
-            const result = await res.json();
+        const result = await res.json();
 
-            if (result.success) {
-                form.reset();
-                loadBlocks();
-            } else {
-                alert(result.error || "Failed to add block");
-            }
-
-        } catch (err) {
-            console.error(err);
-            alert("Server error");
+        if (result.success) {
+            form.reset();
+            loadBlocks();
+        } else {
+            alert("Failed to add block");
         }
     });
 }
@@ -101,7 +96,7 @@ function loadBlocks() {
                     <button class="delete-btn">✕</button>
                 `;
 
-                // SELECT BLOCK
+                // SELECT
                 div.onclick = () => {
                     activeBlock = block;
                     localStorage.setItem("activeBlock", JSON.stringify(block));
@@ -116,15 +111,13 @@ function loadBlocks() {
                     if (title) title.innerText = block.title;
                 };
 
-                // DELETE BLOCK
+                // DELETE
                 div.querySelector(".delete-btn").onclick = (e) => {
                     e.stopPropagation();
 
                     fetch("api/blocks/delete.php", {
                         method: "POST",
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
                         body: `id=${block.id}`
                     })
                     .then(r => r.json())
@@ -146,17 +139,19 @@ function toggleTimer() {
 
 function startTimer() {
     updateFocusState("running");
+
     if (!activeBlock) {
         alert("Select a block first");
         return;
     }
 
-    let minutes = parseInt(document.getElementById("duration-input")?.value) || 25;
+    let minutes = parseInt(document.getElementById("duration-input").value) || 25;
     let duration = minutes * 60;
 
     localStorage.setItem("timerDuration", duration);
     localStorage.setItem("timerStart", Date.now());
     localStorage.setItem("timerBlock", JSON.stringify(activeBlock));
+
     localStorage.removeItem("paused");
     localStorage.removeItem("remaining");
 
@@ -176,8 +171,7 @@ function runTimer() {
 
     activeBlock = block;
 
-    let blockEl = document.getElementById("active-block");
-    if (blockEl) blockEl.innerText = block.title;
+    document.getElementById("active-block").innerText = block.title;
 
     const circle = document.querySelector(".timer-circle");
     if (circle) circle.style.borderColor = block.color;
@@ -187,6 +181,7 @@ function runTimer() {
 
         let elapsed = Math.floor((Date.now() - start) / 1000);
         let remaining = duration - elapsed;
+
         updateProgress(remaining, duration);
 
         if (remaining <= 0) {
@@ -194,8 +189,7 @@ function runTimer() {
             return;
         }
 
-        let timerEl = document.getElementById("big-timer");
-        if (timerEl) timerEl.innerText = format(remaining);
+        document.getElementById("big-timer").innerText = format(remaining);
 
     }, 1000);
 
@@ -231,8 +225,9 @@ function stopTimer(completed = false) {
 
         let remaining = getRemaining();
         let actualTime = duration - remaining;
+
         showCompletionPopup();
-updateFocusState("idle");
+        updateFocusState("idle");
 
         if (actualTime >= 10) {
             fetch("api/logs/add_timer.php", {
@@ -241,6 +236,9 @@ updateFocusState("idle");
                     block_id: block.id,
                     value: actualTime
                 })
+            }).then(() => {
+                loadSummary();   // ✅ FIX
+                loadStreak();    // ✅ FIX
             });
         }
 
@@ -259,7 +257,14 @@ function markBlockComplete(blockId) {
 }
 
 function resetTimerUI() {
-    localStorage.clear();
+    // ❌ removed localStorage.clear()
+
+    localStorage.removeItem("timerStart");
+    localStorage.removeItem("timerDuration");
+    localStorage.removeItem("timerBlock");
+    localStorage.removeItem("paused");
+    localStorage.removeItem("remaining");
+
     initializeTimerUI();
     updateButton();
 }
@@ -267,9 +272,16 @@ function resetTimerUI() {
 function initializeTimerUI() {
     let input = document.getElementById("duration-input");
     let timerEl = document.getElementById("big-timer");
+
     updateFocusState("idle");
 
-    if (input && timerEl) {
+    if (!input || !timerEl) return;
+
+    let savedDuration = localStorage.getItem("timerDuration");
+
+    if (savedDuration) {
+        timerEl.innerText = format(parseInt(savedDuration));
+    } else {
         let minutes = parseInt(input.value) || 25;
         timerEl.innerText = format(minutes * 60);
     }
@@ -311,7 +323,8 @@ function updateProgress(remaining, duration) {
     circle.style.strokeDashoffset = offset;
 }
 
-// Focus state text
+
+// ---------------- UI ----------------
 function updateFocusState(state) {
     const el = document.getElementById("focus-status");
     if (!el) return;
@@ -321,7 +334,6 @@ function updateFocusState(state) {
     else el.innerText = "Ready to focus";
 }
 
-// Completion popup
 function showCompletionPopup() {
     const popup = document.getElementById("complete-popup");
     if (!popup) return;
@@ -330,11 +342,8 @@ function showCompletionPopup() {
     setTimeout(() => popup.style.opacity = "0", 2000);
 }
 
-// Theme toggle
 function toggleTheme() {
     const isLight = document.body.classList.toggle("light");
-
-    // save preference
     localStorage.setItem("theme", isLight ? "light" : "dark");
 }
 
@@ -344,36 +353,8 @@ function loadSummary() {
     fetch("api/logs/summary.php")
         .then(r => r.json())
         .then(data => {
-
-            let timeEl = document.getElementById("today-time");
-            let sessionsEl = document.getElementById("today-sessions");
-            let grid = document.getElementById("week-grid");
-
-            if (!timeEl || !sessionsEl || !grid) return;
-
-            timeEl.innerText = Math.floor(data.today.time / 60) + " min";
-            sessionsEl.innerText = data.today.sessions + " sessions";
-
-            grid.innerHTML = "";
-
-            for (let i = 6; i >= 0; i--) {
-                let d = new Date();
-                d.setDate(d.getDate() - i);
-
-                let key = d.toISOString().split("T")[0];
-                let value = data.week[key] || 0;
-
-                let box = document.createElement("div");
-                box.className = "day-box";
-
-                if (value > 1500) box.classList.add("high");
-                else if (value > 600) box.classList.add("medium");
-                else if (value > 0) box.classList.add("low");
-
-                box.title = `${Math.floor(value / 60)} min`;
-
-                grid.appendChild(box);
-            }
+            const el = document.getElementById("today-time");
+            if (el) el.innerText = data.today_minutes + " min";
         });
 }
 
