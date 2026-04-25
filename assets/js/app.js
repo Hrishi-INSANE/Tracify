@@ -3,6 +3,13 @@ let timerInterval = null;
 
 // ---------------- INIT ----------------
 document.addEventListener("DOMContentLoaded", () => {
+    
+
+    // 🔥 APPLY SAVED THEME
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "light") {
+        document.body.classList.add("light");
+    }
 
     if (document.getElementById("blocks")) loadBlocks();
 
@@ -16,7 +23,11 @@ document.addEventListener("DOMContentLoaded", () => {
         let saved = localStorage.getItem("activeBlock");
         if (saved) {
             activeBlock = JSON.parse(saved);
+
             document.getElementById("active-block").innerText = activeBlock.title;
+
+            const circle = document.querySelector(".timer-circle");
+            if (circle) circle.style.borderColor = activeBlock.color;
         }
     }
 
@@ -25,11 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
         runTimer();
     }
 
-    attachFormHandler(); // 🔥 IMPORTANT
+    attachFormHandler();
 });
 
 
-// ---------------- ADD BLOCK (FIXED) ----------------
+// ---------------- ADD BLOCK ----------------
 function attachFormHandler() {
     const form = document.getElementById("form");
     if (!form) return;
@@ -47,16 +58,16 @@ function attachFormHandler() {
             const res = await fetch("api/blocks/add.php", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/x-www-form-urlencoded"
                 },
-                body: JSON.stringify(data)
+                body: new URLSearchParams(data)
             });
 
             const result = await res.json();
 
             if (result.success) {
                 form.reset();
-                loadBlocks(); // refresh UI
+                loadBlocks();
             } else {
                 alert(result.error || "Failed to add block");
             }
@@ -83,14 +94,41 @@ function loadBlocks() {
                 let div = document.createElement("div");
                 div.className = "block";
                 div.style.background = block.color;
-                div.innerHTML = `<h3>${block.title}</h3>`;
+                div.dataset.id = block.id;
 
+                div.innerHTML = `
+                    <h3>${block.title}</h3>
+                    <button class="delete-btn">✕</button>
+                `;
+
+                // SELECT BLOCK
                 div.onclick = () => {
                     activeBlock = block;
                     localStorage.setItem("activeBlock", JSON.stringify(block));
 
                     document.querySelectorAll(".block").forEach(b => b.classList.remove("active"));
                     div.classList.add("active");
+
+                    const circle = document.querySelector(".timer-circle");
+                    if (circle) circle.style.borderColor = block.color;
+
+                    const title = document.getElementById("active-block");
+                    if (title) title.innerText = block.title;
+                };
+
+                // DELETE BLOCK
+                div.querySelector(".delete-btn").onclick = (e) => {
+                    e.stopPropagation();
+
+                    fetch("api/blocks/delete.php", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
+                        },
+                        body: `id=${block.id}`
+                    })
+                    .then(r => r.json())
+                    .then(() => loadBlocks());
                 };
 
                 container.appendChild(div);
@@ -107,6 +145,7 @@ function toggleTimer() {
 }
 
 function startTimer() {
+    updateFocusState("running");
     if (!activeBlock) {
         alert("Select a block first");
         return;
@@ -140,11 +179,15 @@ function runTimer() {
     let blockEl = document.getElementById("active-block");
     if (blockEl) blockEl.innerText = block.title;
 
+    const circle = document.querySelector(".timer-circle");
+    if (circle) circle.style.borderColor = block.color;
+
     timerInterval = setInterval(() => {
         if (localStorage.getItem("paused")) return;
 
         let elapsed = Math.floor((Date.now() - start) / 1000);
         let remaining = duration - elapsed;
+        updateProgress(remaining, duration);
 
         if (remaining <= 0) {
             stopTimer(true);
@@ -160,6 +203,7 @@ function runTimer() {
 }
 
 function pauseTimer() {
+    updateFocusState("paused");
     localStorage.setItem("paused", "true");
     localStorage.setItem("remaining", getRemaining());
     updateButton();
@@ -187,6 +231,8 @@ function stopTimer(completed = false) {
 
         let remaining = getRemaining();
         let actualTime = duration - remaining;
+        showCompletionPopup();
+updateFocusState("idle");
 
         if (actualTime >= 10) {
             fetch("api/logs/add_timer.php", {
@@ -197,9 +243,19 @@ function stopTimer(completed = false) {
                 })
             });
         }
+
+        markBlockComplete(block.id);
     }
 
     resetTimerUI();
+}
+
+function markBlockComplete(blockId) {
+    document.querySelectorAll(".block").forEach(b => {
+        if (b.dataset.id == blockId) {
+            b.classList.add("completed");
+        }
+    });
 }
 
 function resetTimerUI() {
@@ -211,6 +267,7 @@ function resetTimerUI() {
 function initializeTimerUI() {
     let input = document.getElementById("duration-input");
     let timerEl = document.getElementById("big-timer");
+    updateFocusState("idle");
 
     if (input && timerEl) {
         let minutes = parseInt(input.value) || 25;
@@ -238,6 +295,47 @@ function format(s) {
     let m = Math.floor(s / 60);
     let sec = s % 60;
     return `${m}:${sec < 10 ? "0" : ""}${sec}`;
+}
+
+function updateProgress(remaining, duration) {
+    const circle = document.querySelector(".progress");
+    if (!circle) return;
+
+    const radius = 170;
+    const circumference = 2 * Math.PI * radius;
+
+    const percent = remaining / duration;
+    const offset = circumference * (1 - percent);
+
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = offset;
+}
+
+// Focus state text
+function updateFocusState(state) {
+    const el = document.getElementById("focus-status");
+    if (!el) return;
+
+    if (state === "running") el.innerText = "🔵 In Focus";
+    else if (state === "paused") el.innerText = "⏸ Paused";
+    else el.innerText = "Ready to focus";
+}
+
+// Completion popup
+function showCompletionPopup() {
+    const popup = document.getElementById("complete-popup");
+    if (!popup) return;
+
+    popup.style.opacity = "1";
+    setTimeout(() => popup.style.opacity = "0", 2000);
+}
+
+// Theme toggle
+function toggleTheme() {
+    const isLight = document.body.classList.toggle("light");
+
+    // save preference
+    localStorage.setItem("theme", isLight ? "light" : "dark");
 }
 
 
@@ -278,6 +376,7 @@ function loadSummary() {
             }
         });
 }
+
 function loadStreak() {
     fetch("api/logs/streak.php")
         .then(r => r.json())

@@ -70,6 +70,11 @@ body {
     border-radius: 20px;
     padding: 25px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
 }
 
 /* ---------- TIMER ---------- */
@@ -82,17 +87,19 @@ body {
 
 .timer-card {
     text-align: center;
+    padding: 20px;
 }
 
-/* FIXED circle */
+/* TIMER CIRCLE */
 .timer-circle {
     position: relative;
     width: 380px;
     height: 380px;
     margin: 40px auto;
+    transition: 0.3s;
 }
 
-/* SVG alignment */
+/* SVG */
 .timer-circle svg {
     position: absolute;
     top: 0;
@@ -125,7 +132,7 @@ body {
     stroke-dashoffset: 0;
     transform: rotate(-90deg);
     transform-origin: center;
-    transition: stroke-dashoffset 0.8s linear;
+    transition: stroke-dashoffset 0.5s linear;
 }
 
 /* ---------- CONTROLS ---------- */
@@ -215,6 +222,7 @@ button.danger {
     justify-content: center;
     font-weight: 600;
     cursor: pointer;
+    position: relative;
 
     background: linear-gradient(135deg, #2f5e4b, #4e8b6f);
     box-shadow: 0 10px 30px rgba(78, 139, 111, 0.25);
@@ -227,12 +235,81 @@ button.danger {
     box-shadow: 0 15px 40px rgba(78, 139, 111, 0.4);
 }
 
-.block:hover {
-    transform: translateY(-6px) scale(1.05);
+.block:active {
+    transform: scale(0.95);
 }
 
 .block.active {
     outline: 2px solid var(--green-light);
+}
+
+/* DELETE BUTTON */
+.delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: rgba(0,0,0,0.2);
+    border: none;
+    color: white;
+    cursor: pointer;
+    opacity: 0;
+    transition: 0.2s;
+    border-radius: 6px;
+    padding: 2px 6px;
+}
+
+.block:hover .delete-btn {
+    opacity: 1;
+}
+
+/* COMPLETED BLOCK */
+.block.completed {
+    opacity: 0.5;
+    filter: grayscale(70%);
+}
+
+.block.completed::after {
+    content: "✓";
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 18px;
+}
+
+/* ---------- FOCUS META ---------- */
+.focus-meta {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#focus-status {
+    font-weight: 600;
+}
+
+#focus-quote {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+/* ---------- MINI CARDS ---------- */
+.focus-extra {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.mini-card {
+    background: var(--bg-card);
+    padding: 12px 20px;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 110px;
+    transition: 0.2s;
+}
+
+.mini-card:hover {
+    transform: translateY(-3px);
 }
 
 /* ---------- HISTORY ---------- */
@@ -279,6 +356,27 @@ button.danger {
     border-radius: 10px;
     opacity: 0;
     transition: 0.3s;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+/* ---------- LIGHT MODE ---------- */
+body.light {
+    background: #f5f6fa;
+    color: #111;
+}
+
+body.light .card,
+body.light .mini-card {
+    background: white;
+    color: black;
+}
+
+body.light .sidebar {
+    background: #eaeaea;
+}
+
+body.light .block {
+    box-shadow: none;
 }
 
 /* ---------- FOCUS MODE ---------- */
